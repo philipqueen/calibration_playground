@@ -19,9 +19,22 @@ flags = (
 # TODO: I've mostly narrowed down to flags we probably don't need. We may be able to skip this part.
 
 
-def setup_5x7_tracker() -> CharucoTracker:
+def setup_7x5_tracker() -> CharucoTracker:
     charuco_squares_x_in = 7
     charuco_squares_y_in = 5
+    number_of_charuco_markers = (charuco_squares_x_in - 1) * (charuco_squares_y_in - 1)
+    charuco_ids = [str(index) for index in range(number_of_charuco_markers)]
+
+    return CharucoTracker(
+        tracked_object_names=charuco_ids,
+        squares_x=charuco_squares_x_in,
+        squares_y=charuco_squares_y_in,
+        dictionary=cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250),
+    )
+
+def setup_5x3_tracker() -> CharucoTracker:
+    charuco_squares_x_in = 5
+    charuco_squares_y_in = 3
     number_of_charuco_markers = (charuco_squares_x_in - 1) * (charuco_squares_y_in - 1)
     charuco_ids = [str(index) for index in range(number_of_charuco_markers)]
 
@@ -76,11 +89,11 @@ def save_corrected_video(
     print(f"Corrected video saved to {output_video_path}")
 
 
-def run_intrinsics(input_video_path: Path, output_video_path: Path):
-    charuco_tracker = setup_5x7_tracker()
-
+def run_intrinsics(input_video_path: Path, output_video_path: Path, charuco_tracker: CharucoTracker = setup_7x5_tracker()):
     board = charuco_tracker.board
     detector = charuco_tracker.charuco_detector
+
+    minimum_corners = 8 # documentation says >= 6, but sometimes throws an error with frames with fewer corners
 
     all_charuco_corners = []
     all_charuco_ids = []
@@ -90,6 +103,7 @@ def run_intrinsics(input_video_path: Path, output_video_path: Path):
 
     cap = cv2.VideoCapture(str(input_video_path))
 
+    # opencv convention is (width, height)
     image_size = (
         int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
         int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
@@ -113,8 +127,8 @@ def run_intrinsics(input_video_path: Path, output_video_path: Path):
         )
 
         if (
-            current_charuco_corners is not None and len(current_charuco_corners) >= 8
-        ):  # Documentaiton says >= 6, but osmetimes throws an error with frames with fewer corners
+            current_charuco_corners is not None and len(current_charuco_corners) >= minimum_corners
+        ):
             current_object_points, current_image_points = board.matchImagePoints(
                 current_charuco_corners,
                 current_charuco_ids,
@@ -140,7 +154,7 @@ def run_intrinsics(input_video_path: Path, output_video_path: Path):
 
     # TODO: filter for "better" views of the charuco somehow, and possibly filter for "most different" views to get variety
 
-    ret, camera_matrix, dist_coeffs, _, _ = cv2.calibrateCamera(
+    ret, camera_matrix, distortion_coefficients, _, _ = cv2.calibrateCamera(
         all_object_points,
         all_image_points,
         image_size,
@@ -149,8 +163,10 @@ def run_intrinsics(input_video_path: Path, output_video_path: Path):
         flags=flags,
     )
 
+    distortion_coefficients = distortion_coefficients[0]
+
     print(f"Camera matrix: {camera_matrix}")
-    print(f"Distortion coefficients: {dist_coeffs}")
+    print(f"Distortion coefficients: {distortion_coefficients}")
 
     cap.release()
 
@@ -158,7 +174,7 @@ def run_intrinsics(input_video_path: Path, output_video_path: Path):
         input_video_path=input_video_path,
         output_video_path=output_video_path,
         camera_matrix=camera_matrix,
-        dist_coeffs=dist_coeffs,
+        dist_coeffs=distortion_coefficients,
     )
 
 
@@ -166,10 +182,15 @@ if __name__ == "__main__":
     # input_video_path = Path(
     #     "/Users/philipqueen/freemocap_data/recording_sessions/session_2024-06-27_15_07_36/recording_15_13_46_gmt-4_calibration/synchronized_videos/Camera_000_synchronized.mp4"
     # )
-    input_video_path = Path("/Users/philipqueen/Movies/intrinsic_calibration_laptopcam.mp4")
+    input_video_path = Path(
+        "/Users/philipqueen/basler_intrinsics/Basler_acA1300-200um__24676894__20250625_112826560.mp4"
+        )
     output_video_path = input_video_path.with_name(
         f"{input_video_path.stem}_corrected.mp4"
     )
+    charuco_tracker = setup_5x3_tracker()  # Use the 5x3 charuco board
+    # charuco_tracker = setup_7x5_tracker()  # Use the 7x5 charuco board
+
     run_intrinsics(
-        input_video_path=input_video_path, output_video_path=output_video_path
+        input_video_path=input_video_path, output_video_path=output_video_path, charuco_tracker=charuco_tracker
     )
