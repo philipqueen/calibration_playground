@@ -1,5 +1,6 @@
 from pathlib import Path
 import cv2
+import json
 import numpy as np
 from skellytracker.trackers.charuco_tracker.charuco_tracker import CharucoTracker
 
@@ -154,6 +155,11 @@ def run_intrinsics(input_video_path: Path, output_video_path: Path, charuco_trac
 
     # TODO: filter for "better" views of the charuco somehow, and possibly filter for "most different" views to get variety
 
+    if len(all_object_points) > 1000:
+        print("Too many frames captured, using only the first 1000.")
+        all_object_points = all_object_points[:1000]
+        all_image_points = all_image_points[:1000]
+
     ret, camera_matrix, distortion_coefficients, _, _ = cv2.calibrateCamera(
         all_object_points,
         all_image_points,
@@ -168,14 +174,22 @@ def run_intrinsics(input_video_path: Path, output_video_path: Path, charuco_trac
     print(f"Camera matrix: {camera_matrix}")
     print(f"Distortion coefficients: {distortion_coefficients}")
 
+    calibration_data = {
+        "camera_matrix": camera_matrix.tolist(),
+        "distortion_coefficients": distortion_coefficients.tolist(),
+    }
+    json_output_path = output_video_path.with_name(f"{input_video_path.stem}_intrinsics.json")
+    with open(str(json_output_path), "w") as f:
+        json.dump(calibration_data, f, indent=4)
+
     cap.release()
 
-    save_corrected_video(
-        input_video_path=input_video_path,
-        output_video_path=output_video_path,
-        camera_matrix=camera_matrix,
-        dist_coeffs=distortion_coefficients,
-    )
+    # save_corrected_video(
+    #     input_video_path=input_video_path,
+    #     output_video_path=output_video_path,
+    #     camera_matrix=camera_matrix,
+    #     dist_coeffs=distortion_coefficients,
+    # )
 
 
 if __name__ == "__main__":
@@ -183,8 +197,8 @@ if __name__ == "__main__":
     #     "/Users/philipqueen/freemocap_data/recording_sessions/session_2024-06-27_15_07_36/recording_15_13_46_gmt-4_calibration/synchronized_videos/Camera_000_synchronized.mp4"
     # )
     input_video_path = Path(
-        "/Users/philipqueen/basler_intrinsics/Basler_acA1300-200um__24676894__20250625_112826560.mp4"
-        )
+        "/Users/philipqueen/basler_intrinsics/Basler_acA2040-90umNIR__25006505__20250625_114110681.mp4"
+    )
     output_video_path = input_video_path.with_name(
         f"{input_video_path.stem}_corrected.mp4"
     )
