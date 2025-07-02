@@ -4,6 +4,7 @@ import numpy as np
 
 def get_z_values(data_3d: np.ndarray, frame_range: tuple[int, int]) -> np.ndarray:
     # data_3d = filter_z_values(data_3d)
+    data_3d = np.abs(data_3d)
     return data_3d[frame_range[0]:frame_range[1], :, 2]
 
 def filter_z_values(z_values: np.ndarray, threshold: float = 50) -> np.ndarray:
