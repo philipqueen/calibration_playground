@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "cv2-enumerate-cameras>=1.2.1",
+    "cv2-enumerate-cameras>=1.2.2",
     "matplotlib>=3.10.3",
     "opencv-contrib-python>=4.8.*",
     "skellytracker>=2024.9.1019",
